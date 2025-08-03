@@ -1,0 +1,238 @@
+  <!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>استعمال الزمن - جدول ديناميكي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .notepad-icon {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      background-color: #fbbf24;
+      padding: 0.5rem;
+      border-radius: 9999px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 50;
+    }
+    #notepad {
+      position: fixed;
+      top: 4rem;
+      left: 1rem;
+      width: 300px;
+      height: 400px;
+      z-index: 50;
+      display: none;
+    }
+    #notepad textarea {
+      width: 100%;
+      height: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-green-100 to-blue-100 min-h-screen p-4">
+
+  <div class="notepad-icon" onclick="toggleNotepad()" title="المذكرة">📝</div>
+  <div id="notepad">
+    <textarea placeholder="ملاحظاتك هنا..."></textarea>
+  </div>
+
+  <div class="bg-white shadow-lg rounded-xl p-4 max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold text-center text-green-700 mb-4">استعمال الزمن الأسبوعي</h1>
+    <div class="overflow-auto">
+      <table class="table-auto w-full text-center border border-gray-300">
+        <thead class="bg-green-200">
+          <tr>
+            <th class="border px-4 py-2">الساعة \ اليوم</th>
+            <th class="border px-4 py-2">الأحد</th>
+            <th class="border px-4 py-2">الإثنين</th>
+            <th class="border px-4 py-2">الثلاثاء</th>
+            <th class="border px-4 py-2">الأربعاء</th>
+            <th class="border px-4 py-2">الخميس</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody" class="bg-white"></tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-center flex-wrap gap-4 mt-4">
+      <button onclick="removeLastSubject()" class="bg-red-600 text-white px-4 py-2 rounded">➖ حذف آخر حصة</button>
+      <button onclick="addNewRow()" class="bg-green-600 text-white px-4 py-2 rounded">➕ إضافة حصة جديدة</button>
+      <button onclick="saveSchedule()" class="bg-blue-600 text-white px-4 py-2 rounded">💾 حفظ</button>
+      <button onclick="triggerManualAlarm()" class="bg-yellow-500 text-white px-4 py-2 rounded">🔔 تنبيه تجريبي</button>
+      <button id="stopButton" onclick="stopAlarm()" class="hidden bg-red-600 text-white px-4 py-2 rounded">⏹️ إيقاف التنبيه</button>
+      <label class="cursor-pointer bg-purple-600 text-white px-4 py-2 rounded">
+        📁 رفع صوت من الهاتف
+        <input type="file" id="customSound" accept="audio/*" class="hidden">
+      </label>
+      <button onclick="testAlarmSound()" class="bg-gray-700 text-white px-4 py-2 rounded">🎧 تجربة الصوت</button>
+    </div>
+  </div>
+
+  <audio id="alarmSound" preload="auto"></audio>
+
+  <footer class="text-center mt-8 text-sm text-gray-600">
+    <hr class="my-4 border-gray-300">
+    <p>تطوير: <strong>مقدس سي حمو المهدي</strong></p>
+    <p>📧 <a href="mailto:sihammouelmehdi@gmail.com" class="text-blue-700 hover:underline">sihammouelmehdi@gmail.com</a></p>
+    <p>© 2025 جميع الحقوق محفوظة</p>
+  </footer>
+
+  <script>
+    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+    let times = JSON.parse(localStorage.getItem("timesList")) || ["08:00", "10:00", "13:00", "15:00"];
+
+    function getSelectedAlarmSound() {
+      return localStorage.getItem("alarmSound") || "alarm.mp3";
+    }
+
+    function loadSchedule() {
+      const saved = JSON.parse(localStorage.getItem("verticalSchedule")) || {};
+      const tbody = document.getElementById("scheduleBody");
+      tbody.innerHTML = "";
+
+      times.forEach((time, timeIndex) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="border px-2 py-1 font-bold">
+          <input type="time" value="${time}" class="time-input w-full border p-1 rounded" data-index="${timeIndex}">
+        </td>` +
+        days.map(day => {
+          const val = saved[day]?.[timeIndex] || "";
+          return `<td class="border px-2 py-1"><input type="text" value="${val}" class="subject-input w-full p-1 border rounded" data-day="${day}" data-time="${timeIndex}"></td>`;
+        }).join("");
+
+        tbody.appendChild(tr);
+      });
+
+      // حفظ التعديلات على الساعات
+      document.querySelectorAll(".time-input").forEach(input => {
+        input.addEventListener("change", () => {
+          const index = input.dataset.index;
+          times[index] = input.value;
+          localStorage.setItem("timesList", JSON.stringify(times));
+        });
+      });
+    }
+
+    function addNewRow() {
+      times.push("12:00");
+      localStorage.setItem("timesList", JSON.stringify(times));
+      loadSchedule();
+    }
+
+    function removeLastSubject() {
+      if (times.length === 0) {
+        alert("لا توجد حصص لحذفها!");
+        return;
+      }
+      times.pop();
+      localStorage.setItem("timesList", JSON.stringify(times));
+      loadSchedule();
+    }
+
+    function saveSchedule() {
+      const schedule = {};
+      document.querySelectorAll("input.subject-input").forEach(input => {
+        const day = input.dataset.day;
+        const timeIndex = input.dataset.time;
+        if (!schedule[day]) schedule[day] = [];
+        schedule[day][timeIndex] = input.value;
+      });
+      localStorage.setItem("verticalSchedule", JSON.stringify(schedule));
+      localStorage.setItem("timesList", JSON.stringify(times));
+      alert("✅ تم الحفظ بنجاح!");
+    }
+
+    function toggleNotepad() {
+      const pad = document.getElementById("notepad");
+      pad.style.display = pad.style.display === "none" || !pad.style.display ? "block" : "none";
+    }
+
+    function triggerManualAlarm() {
+      showNotification("🔔 هذا تنبيه تجريبي");
+    }
+
+    function stopAlarm() {
+      const audio = document.getElementById("alarmSound");
+      audio.pause();
+      audio.currentTime = 0;
+      document.getElementById("stopButton").classList.add("hidden");
+    }
+
+    function showNotification(text) {
+      if (Notification.permission === "granted") {
+        new Notification("⏰ تنبيه دراسي", {
+          body: text,
+          icon: "icon.png"
+        });
+        const audio = document.getElementById("alarmSound");
+        audio.src = getSelectedAlarmSound();
+        try {
+          audio.play();
+        } catch (e) {
+          console.warn("تعذر تشغيل الصوت:", e);
+        }
+        document.getElementById("stopButton").classList.remove("hidden");
+        setTimeout(stopAlarm, 2 * 60 * 1000);
+      }
+    }
+
+    function checkAlarms() {
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5);
+      const dayIndex = now.getDay() - 1;
+      if (dayIndex < 0 || dayIndex > 4) return;
+
+      const day = days[dayIndex];
+      const schedule = JSON.parse(localStorage.getItem("verticalSchedule")) || {};
+      const subjects = schedule[day] || [];
+
+      times.forEach((time, i) => {
+        if (time === currentTime && subjects[i]) {
+          showNotification("حان وقت " + subjects[i]);
+        }
+      });
+    }
+
+  function testAlarmSound() {
+  const audio = document.getElementById("alarmSound");
+  audio.src = getSelectedAlarmSound();
+  audio.currentTime = 0;
+  audio.play().then(() => {
+    document.getElementById("stopButton").classList.remove("hidden");
+  }).catch((e) => {
+    console.warn("تعذر تشغيل الصوت:", e);
+  });
+}
+
+
+    // رفع صوت مخصص من الهاتف
+    document.getElementById("customSound").addEventListener("change", function () {
+      const file = this.files[0];
+      if (file) {
+        const objectUrl = URL.createObjectURL(file);
+        localStorage.setItem("alarmSound", objectUrl);
+        const audio = document.getElementById("alarmSound");
+        audio.src = objectUrl;
+        audio.load();
+        alert("✅ تم رفع الصوت بنجاح!");
+      }
+    });
+
+    // عند تحميل الصفحة
+    window.onload = function () {
+      loadSchedule();
+      setInterval(checkAlarms, 60000);
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    };
+  </script>
+</body>
+</html>
